@@ -32,24 +32,14 @@ export default function proxyquireTransformer(fileInfo, j, ast) {
         const mocks = new Set();
 
         ast
-            .find(j.CallExpression, match => {
-                if (
-                    match.callee.type === 'CallExpression' &&
-                    match.callee.callee.type === 'MemberExpression'
-                ) {
+            .find(j.CallExpression, (match) => {
+                if (match.callee.type === 'CallExpression' && match.callee.callee.type === 'MemberExpression') {
                     return match.callee.callee.object.name === importVariableName;
-                } else if (
-                    match.callee.type === 'MemberExpression' &&
-                    match.callee.object.type === 'CallExpression' &&
-                    match.callee.object.callee.type === 'MemberExpression'
-                ) {
+                } else if (match.callee.type === 'MemberExpression' && match.callee.object.type === 'CallExpression' && match.callee.object.callee.type === 'MemberExpression') {
                     return match.callee.object.callee.object.name === importVariableName;
-                } else if (
-                    match.callee.type === 'MemberExpression' &&
-                    match.callee.object.name === importVariableName
-                ) {
+                } else if (match.callee.type === 'MemberExpression' && match.callee.object.name === importVariableName) {
                     const parentFind = ast.find(j.CallExpression, { callee: match });
-                    const parent = parentFind.size() && parentFind.get();
+                    const parent = parentFind.size() && parentFind.get(); 
 
                     return !parent || parent.node.type !== 'CallExpression';
                 }
