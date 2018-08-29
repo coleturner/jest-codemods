@@ -1,10 +1,25 @@
-import { getRequireOrImportName, removeRequireAndImport } from '../utils/imports';
-//import logger from '../utils/logger';
-import finale from '../utils/finale';
+'use strict';
+
+Object.defineProperty(exports, '__esModule', {
+    value: true,
+});
+exports.default = expectJsTransfomer;
+
+var _imports = require('../utils/imports');
+
+var _finale = require('../utils/finale');
+
+var _finale2 = _interopRequireDefault(_finale);
+
+function _interopRequireDefault(obj) {
+    return obj && obj.__esModule ? obj : { default: obj };
+}
 
 // Todos: window functions should be global
 
 const SINON = 'sinon';
+//import logger from '../utils/logger';
+
 const SINON_CALLED_WITH_METHODS = ['calledWith', 'notCalledWith'];
 const TRUE_FALSE_MATCHERS = ['toBe', 'toBeTruthy', 'toBeFalsy'];
 const SINON_CALL_COUNT_METHODS = [
@@ -16,18 +31,18 @@ const SINON_CALL_COUNT_METHODS = [
     'callCount',
 ];
 
-export default function expectJsTransfomer(fileInfo, api, options) {
+function expectJsTransfomer(fileInfo, api, options) {
     const j = api.jscodeshift;
     const ast = j(fileInfo.source);
-    const sinonImport = getRequireOrImportName(j, ast, SINON);
+    const sinonImport = (0, _imports.getRequireOrImportName)(j, ast, SINON);
     //const logWarning = (msg, node) => logger(fileInfo, msg, node);
 
     if (!sinonImport) {
         // No sinon require/import were found
-        return fileInfo.source;
+        //  return fileInfo.source;
     }
 
-    removeRequireAndImport(j, ast, SINON);
+    //(0, _imports.removeRequireAndImport)(j, ast, SINON);
 
     [
         transformSinonMock,
@@ -40,7 +55,7 @@ export default function expectJsTransfomer(fileInfo, api, options) {
         fn(j, ast);
     });
 
-    return finale(fileInfo, j, ast, options, sinonImport);
+    return (0, _finale2.default)(fileInfo, j, ast, options, sinonImport);
 }
 
 /**
@@ -50,15 +65,14 @@ export default function expectJsTransfomer(fileInfo, api, options) {
 // sinon.mock() -> jest.fn()
 function transformSinonMock(j, ast) {
     ast
-        .find(j.CallExpression, {
-            callee: {
-                object: {
-                    name: SINON,
-                },
-                property: {
-                    name: 'mock',
-                },
-            },
+        .find(j.CallExpression, n => {
+            return (
+                n.callee &&
+                n.callee.object &&
+                n.callee.object.type === 'Identifier' &&
+                n.callee.object.name.toLowerCase() === SINON &&
+                n.callee.property.name === 'mock'
+            );
         })
         .replaceWith(path => {
             return createJestFn(j);
@@ -72,14 +86,12 @@ function transformSinonMock(j, ast) {
  */
 function transformStubCreation(j, ast) {
     ast
-        .find(j.ExpressionStatement, {
-            expression: {
-                type: 'CallExpression',
-                callee: isSinonStubCall,
-            },
+        .find(j.CallExpression, {
+            type: 'CallExpression',
+            callee: isSinonStubCall,
         })
         .replaceWith(path => {
-            return j.expressionStatement(createJestSpyCall(j, path.value.expression));
+            return createJestSpyCall(j, path.node);
         });
 
     /*
@@ -145,7 +157,7 @@ function transformGetCallMethos(j, ast) {
             object: {
                 type: 'MemberExpression',
                 property: {
-                    name: name => methods.includes(name),
+                    name: _name => methods.includes(_name),
                 },
             },
             property: {
@@ -181,7 +193,7 @@ function transformGetCallMethos(j, ast) {
     ast
         .find(j.MemberExpression, {
             property: {
-                name: name => methods.includes(name),
+                name: _name2 => methods.includes(_name2),
             },
         })
         .replaceWith(path => {
@@ -236,15 +248,14 @@ function transformGetCallMethos(j, ast) {
 // sinon.spy(object, 'method') -> jest.spyOn(object, 'method')
 function transformSpyCreation(j, ast) {
     ast
-        .find(j.CallExpression, {
-            callee: {
-                object: {
-                    name: SINON,
-                },
-                property: {
-                    name: 'spy',
-                },
-            },
+        .find(j.CallExpression, n => {
+            return (
+                n.callee &&
+                n.callee.object &&
+                n.callee.object.type === 'Identifier' &&
+                n.callee.object.name.toLowerCase() === SINON &&
+                n.callee.property.name === 'spy'
+            );
         })
         .replaceWith(path => {
             switch (path.value.arguments.length) {
@@ -364,9 +375,11 @@ function isSinonStubCall(callee) {
     if (callee.object && callee.object.type === 'CallExpression') {
         return isSinonStubCall(callee.object.callee);
     }
+
     if (
         callee.type === 'MemberExpression' &&
-        callee.object.name === SINON &&
+        callee.object.type === 'Identifier' &&
+        callee.object.name.toLowerCase() === SINON &&
         callee.property.name === 'stub'
     ) {
         return true;
@@ -490,6 +503,8 @@ function createExpectStatement(j, expectArg, negation, assertMethod, assertArgs)
     );
 }
 
-function createJestFn(j, args = []) {
+function createJestFn(j) {
+    let args = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : [];
+
     return j.callExpression(j.identifier('jest.fn'), args);
 }
