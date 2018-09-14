@@ -8,6 +8,14 @@ function findChildOfProgram(path, childPath) {
     return findChildOfProgram(path.parent, path);
 }
 
+function formatMockName(j, node) {
+    if ('value' in node) {
+        return j.literal(node.value);
+    }
+
+    return node;
+}
+
 const getJestMockStatement = ({ j, mockName, mockBody }) =>
     j.expressionStatement(
         j.callExpression(j.identifier('jest.mock'), [
@@ -111,7 +119,7 @@ export default function proxyquireTransformer(fileInfo, j, ast) {
                             mockName,
                             mockBody: j.memberExpression(
                                 j.identifier(mocksNode.name),
-                                mockName
+                                formatMockName(j, mockName)
                             ),
                         });
                         findChildOfProgram(outerCallExpression).insertBefore(
