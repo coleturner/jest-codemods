@@ -54,7 +54,8 @@ const TRANSFORMER_SHOULD = 'should';
 const TRANSFORMER_TAPE = 'tape';
 
 const ALL_TRANSFORMERS = [
-    // TRANSFORMER_CHAI_SHOULD & TRANSFORMER_SHOULD doesn't have import detection
+    TRANSFORMER_CHAI_SHOULD,
+    TRANSFORMER_SHOULD, // doesn't have import detection
     TRANSFORMER_AVA,
     TRANSFORMER_CHAI_ASSERT,
     TRANSFORMER_EXPECT_JS,

@@ -21,6 +21,7 @@ const SINON = 'sinon';
 //import logger from '../utils/logger';
 
 const SINON_CALLED_WITH_METHODS = ['calledWith', 'notCalledWith'];
+const SINON_CALL_RETURN_METHODS = ['returned'];
 const TRUE_FALSE_MATCHERS = ['toBe', 'toBeTruthy', 'toBeFalsy'];
 const SINON_CALL_COUNT_METHODS = [
     'called',
@@ -47,6 +48,7 @@ function expectJsTransfomer(fileInfo, api, options) {
     [
         transformSinonMock,
         transformCallCountAssertions,
+        transformCallReturnAssertions,
         transformCalledWithAssertions,
         transformSpyCreation,
         transformStubCreation,
@@ -243,6 +245,18 @@ function transformGetCallMethos(j, ast) {
         .replaceWith(path => {
             return createJestGetCall(path.value.callee.object, path.value.arguments[0]);
         });
+
+    ast
+        .find(j.CallExpression, {
+            callee: {
+                property: {
+                    name: 'restore',
+                },
+            },
+        })
+        .forEach(path => {
+            path.node.callee.property.name = 'mockRestore';
+        });
 }
 
 // sinon.spy(object, 'method') -> jest.spyOn(object, 'method')
@@ -323,9 +337,6 @@ function transformCallCountAssertions(j, ast) {
             expression: {
                 callee: {
                     type: 'MemberExpression',
-                    property: node => {
-                        return TRUE_FALSE_MATCHERS.includes(node.name);
-                    },
                     object: obj => {
                         return isExpectSinonObject(obj, SINON_CALL_COUNT_METHODS);
                     },
@@ -363,6 +374,43 @@ function transformCallCountAssertions(j, ast) {
                         'toHaveBeenCalledTimes',
                         path.value.expression.arguments
                     );
+            }
+        });
+}
+
+function transformCallReturnAssertions(j, ast) {
+    ast
+        .find(j.ExpressionStatement, {
+            expression: {
+                callee: {
+                    type: 'MemberExpression',
+                    object: obj => {
+                        return isExpectSinonObject(obj, SINON_CALL_RETURN_METHODS);
+                    },
+                },
+            },
+        })
+        .replaceWith(path => {
+            const callExp = getExpectArg(path.value.expression.callee.object);
+            const expectArg = callExp.callee;
+            const expectArgObject = expectArg.object;
+            const expectArgSinonMethod = expectArg.property.name;
+            let negation = isExpectNegation(path.value);
+            if (expectArgSinonMethod === 'notCalled') {
+                negation = negation ? false : true;
+            }
+
+            const createExpect = createExpectStatement.bind(
+                null,
+                j,
+                expectArgObject,
+                negation
+            );
+
+            switch (expectArgSinonMethod) {
+                default:
+                    // callCount
+                    return createExpect('toHaveReturnedWith', callExp.arguments);
             }
         });
 }
@@ -407,14 +455,29 @@ function isExpectSinonObject(obj, sinonMethods) {
     if (obj.type === 'CallExpression' && obj.callee.name === 'expect') {
         const args = obj.arguments;
         if (args.length) {
+            let memberExp = args[0];
+
+            if (memberExp.type === 'CallExpression') {
+                memberExp = memberExp.callee;
+            }
+
             return (
-                args[0].type === 'MemberExpression' &&
-                sinonMethods.includes(args[0].property.name)
+                memberExp &&
+                memberExp.type === 'MemberExpression' &&
+                sinonMethods.includes(memberExp.property.name)
             );
         }
         return false;
     } else if (obj.type === 'MemberExpression') {
-        return isExpectSinonObject(obj.object, sinonMethods);
+        let memberExp = obj.object;
+        while (
+            memberExp.type === 'MemberExpression' &&
+            memberExp.object.type === 'MemberExpression'
+        ) {
+            memberExp = memberExp.object;
+        }
+
+        return isExpectSinonObject(memberExp, sinonMethods);
     }
 }
 
@@ -436,15 +499,16 @@ function isExpectNegation(expectStatement) {
 function createJestSpyCall(j, callExpression) {
     const callee = callExpression.callee;
     const args = callExpression.arguments;
+
     if (callee.object.type === 'CallExpression') {
+        const spyMethod = callee.object.arguments.length
+            ? j.identifier('jest.spyOn')
+            : j.identifier('jest.fn');
         if (callee.property && callee.property.name === 'returns') {
             if (callee.object.arguments.length) {
                 return j.callExpression(
                     j.memberExpression(
-                        j.callExpression(
-                            j.identifier('jest.spyOn'),
-                            callee.object.arguments
-                        ),
+                        j.callExpression(spyMethod, callee.object.arguments),
                         j.identifier('mockReturnValue')
                     ),
                     args
@@ -458,7 +522,7 @@ function createJestSpyCall(j, callExpression) {
         } else if (callee.property && callee.property.name === 'returnsArg') {
             return j.callExpression(
                 j.memberExpression(
-                    j.callExpression(j.identifier('jest.spyOn'), callee.object.arguments),
+                    j.callExpression(spyMethod, callee.object.arguments),
                     j.identifier('mockImplementation')
                 ),
                 [
@@ -467,6 +531,14 @@ function createJestSpyCall(j, callExpression) {
                         j.memberExpression(j.identifier('args'), args[0])
                     ),
                 ]
+            );
+        } else if (callee.property && callee.property.name === 'callsFake') {
+            return j.callExpression(
+                j.memberExpression(
+                    j.callExpression(spyMethod, callee.object.arguments),
+                    j.identifier('mockImplementation')
+                ),
+                [args[0]]
             );
         }
     }
