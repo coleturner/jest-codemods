@@ -17,6 +17,10 @@ function executeTransformation(files, flags, transformer, transformerArgs) {
         args.push('--ignore-pattern', flags.ignorePattern);
     }
 
+    if (flags.ignoreConfig) {
+        args.push('--ignore-config', flags.ignoreConfig);
+    }
+
     if (['babel', 'babylon', 'flow'].indexOf(flags.parser) >= 0) {
         args.push('--parser', flags.parser);
     }
