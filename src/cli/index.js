@@ -19,7 +19,7 @@ const cli = meow(
 
     Options
       --ignore-pattern, -i  Ignore files that match a provided glob expression
-      --ignore-config, -ic  Ignore files matching the ignore configuration file
+      --ignore-config, -c  Ignore files matching the ignore configuration file
       --force, -f           Bypass Git safety checks and forcibly run codemods
       --dry, -d             Dry run (no changes are made to files)
       --parser              The parser to use for parsing your source files (babel | babylon | flow)  [babel]
@@ -30,7 +30,7 @@ const cli = meow(
         string: ['_'],
         alias: {
             i: 'ignorePattern',
-            ic: 'ignoreConfig',
+            c: 'ignoreConfig',
             f: 'force',
             h: 'help',
             d: 'dry',
