@@ -51,6 +51,7 @@ const TRANSFORMER_JASMINE_GLOBALS = 'jasmine-globals';
 const TRANSFORMER_JASMINE_THIS = 'jasmine-this';
 const TRANSFORMER_MOCHA = 'mocha';
 const TRANSFORMER_SHOULD = 'should';
+const TRANSFORMER_SINON = 'sinon';
 const TRANSFORMER_TAPE = 'tape';
 
 const ALL_TRANSFORMERS = [
@@ -63,6 +64,7 @@ const ALL_TRANSFORMERS = [
     TRANSFORMER_MOCHA,
     TRANSFORMER_TAPE,
     TRANSFORMER_JASMINE_THIS,
+    TRANSFORMER_SINON,
 ];
 
 const TRANSFORMER_INQUIRER_CHOICES = [
@@ -105,6 +107,10 @@ const TRANSFORMER_INQUIRER_CHOICES = [
     {
         name: 'Tape',
         value: TRANSFORMER_TAPE,
+    },
+    {
+        name: 'Sinon',
+        value: TRANSFORMER_SINON,
     },
     {
         name: 'All of the above (by detecting usage)!',
